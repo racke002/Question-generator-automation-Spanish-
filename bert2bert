@@ -1,0 +1,50 @@
+import pandas as pd
+from tqdm import tqdm
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
+input_file_path = r"C:\Users\Ryan\Desktop\Python Projects\Question generation (input)\Individual text (spanish).csv"
+output_file_path = r"C:\Users\Ryan\Desktop\Python Projects\Question generation (output)\Spanish Output\individual text output (3q spanish).txt"
+
+tokenizer = AutoTokenizer.from_pretrained("mrm8488/bert2bert-spanish-question-generation")
+model = AutoModelForSeq2SeqLM.from_pretrained("mrm8488/bert2bert-spanish-question-generation")
+
+
+def run_model(input_string, **generator_args):
+    generator_args = {
+        "max_length": 100,
+        "num_return_sequences": 3,
+        "num_beams": 9,
+        "length_penalty": 2.5,
+        "no_repeat_ngram_size": 6,
+        "early_stopping": False,
+    }
+    input_string = "generate questions: " + input_string + " </s>"
+    input_ids = tokenizer.encode(input_string, return_tensors="pt")
+    res = model.generate(input_ids, **generator_args)
+    output = tokenizer.batch_decode(res, skip_special_tokens=True)
+    output = [item.split("<sep>") for item in output]
+    return output
+
+# Read the input Excel file
+df = pd.read_csv(input_file_path)
+
+# Create a list to store the generated questions
+generated_questions = []
+
+# Loop through each row of the file and generate questions
+for _, row in tqdm(df.iterrows(), total=len(df)):
+    example_text = row["TEXT"]  # Modify the column name here if needed
+    questions = run_model(example_text)
+
+    # Limit the number of generated questions to 3
+    for question_set in questions:
+        for question in question_set:
+            generated_questions.append(question)
+
+# Open the output file in write mode
+with open(output_file_path, "w", encoding="utf-8") as file:
+    # Write each generated question to the file
+    for question in generated_questions:
+        file.write(question + "\n")
+
+print("Question generation completed and saved to:", output_file_path)
